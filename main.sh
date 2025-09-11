@@ -49,6 +49,20 @@ list_databases() {
     fi
 }
 
+# Function to connect to a database
+connect_to_database(){
+    echo -e "${YELLOW}Enter database name to connect:${NC}"
+    read -r db_name
+
+    if [ -d "$DB_DIR/$db_name" ]; then
+        echo -e "${GREEN}Connected to '$db_name' database.${NC}"
+        database_menu "$db_name"
+    else
+        echo -e "${RED}Database '$db_name' does not exist!${NC}"
+    fi
+}
+
+# Function to drop a database
 drop_database() {
     echo -e "${YELLOW}Enter database name to drop:${NC}"
     read -r db_name
@@ -67,13 +81,43 @@ drop_database() {
     fi
 }
 
+# Function to display the database menu
+database_menu(){
+    local db_name=$1
+    while true; do
+        echo -e "\n${BLUE}======= Database: $db_name =======${NC}"
+        echo "1. Create Table"
+        echo "2. List Tables"
+        echo "3. Drop Table"
+        echo "4. Insert into Table"
+        echo "5. Select From Table"
+        echo "6. Delete From Table"
+        echo "7. Update Records (Bonus Feature)"
+        echo "8. Back to Main Menu"
+        echo -e "${YELLOW}Enter your choice:${NC}"
+        read -r choice
+
+        case $choice in
+            1) create_table "$db_name" ;;
+            2) list_tables "$db_name" ;;
+            3) drop_table "$db_name" ;;
+            4) insert_into_table "$db_name" ;;
+            5) select_from_table "$db_name" ;;
+            6) delete_from_table "$db_name" ;;
+            7) update_table "$db_name" ;;
+            8) return ;;
+            *) echo -e "${RED}Invalid option${NC}" ;;
+        esac
+    done
+}
+
 # Main menu function
 main_menu() {
     while true; do
         echo -e "\n${BLUE}======= DBMS Main Menu =======${NC}"
         echo "1. Create Database"
         echo "2. List Databases"
-        #echo "3. Connect To Database"
+        echo "3. Connect To Database"
         echo "4. Drop Database"
         echo "5. Exit"
         echo -e "${YELLOW}Enter your choice:${NC}"
@@ -90,5 +134,6 @@ main_menu() {
     done
 }
 
+# Initialize and start the application
 initialize
 main_menu
