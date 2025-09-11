@@ -39,12 +39,22 @@ create_database() {
     fi
 }
 
+# Function to list all databases
+list_databases() {
+    echo -e "${BLUE}Available Databases:${NC}"
+    if [ -d "$DB_DIR" ] && [ "$(ls -A "$DB_DIR" 2>/dev/null)" ]; then
+        ls -1 "$DB_DIR" | nl
+    else
+        echo -e "${YELLOW}No databases found.${NC}"
+    fi
+}
+
 # Main menu function
 main_menu() {
     while true; do
         echo -e "\n${BLUE}======= DBMS Main Menu =======${NC}"
         echo "1. Create Database"
-        #echo "2. List Databases"
+        echo "2. List Databases"
         #echo "3. Connect To Database"
         #echo "4. Drop Database"
         echo "5. Exit"
@@ -53,6 +63,7 @@ main_menu() {
 
         case $choice in
             1) create_database ;;
+            2) list_databases ;;
             5)echo -e "${GREEN}Thank you for using Bash DBMS. Goodbye!${NC}"
               exit 0 ;;
             *) echo -e "${RED}Invalid option${NC}" ;;
