@@ -4,8 +4,8 @@ A Command-Line Interface (CLI) Menu-based application that enables users to stor
 
 ## 🧑‍💻 Developed by
 
-- Ahmad
-- Kareem
+- Ahmed Ehab Elsaba
+- Kareem Yasser
 
 ## 📋 Features
 
