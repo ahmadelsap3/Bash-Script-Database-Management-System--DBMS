@@ -293,3 +293,67 @@ select_from_table() {
     done < "$DB_DIR/$db_name/$table_name"
 }
 
+# Function to delete records from a table based on a condition
+delete_from_table() {
+    local db_name="$1"
+    echo -e "${YELLOW}Enter table name to delete records from:${NC}"
+    read -r table_name
+
+    if [ ! -f "$DB_DIR/$db_name/$table_name" ]; then
+        echo -e "${RED}Error: Table '$table_name' does not exist in database '$db_name'.${NC}"
+        return 1
+    fi
+
+    local metadata_file="$DB_DIR/$db_name/$table_name.meta"
+    if [ ! -f "$metadata_file" ]; then
+        echo -e "${RED}Error: Metadata file for table '$table_name' is missing.${NC}"
+        return 1
+    fi  
+
+    # Parse metadata
+    local column_data=($(grep -v "Table:" "$metadata_file" | grep -v "Primary Key:" | grep -v "Columns:" | sed 's/ - //g'))
+    local col_names=()
+    for col in "${column_data[@]}"; do
+        col_name="$(echo "$col" | awk -F': ' '{print $1}')"
+        col_names+=("$col_name")
+    done
+    
+    # check if table has data
+    if [ ! -s "$DB_DIR/$db_name/$table_name" ]; then
+        echo -e "${YELLOW}Table '$table_name' is empty. No records to delete.${NC}"
+        return 0
+    fi
+
+    # ask for column to match
+    echo -e "${YELLOW}Enter column name to match for deletion:${NC}"
+    read -r col_name
+    if [[ ! " ${col_names[*]} " == *" $col_name "* ]]; then
+        echo -e "${RED}Error: Column '$col_name' does not exist in table '$table_name'.${NC}"
+        return 1
+    fi
+    local col_index=-1
+    for i in "${!col_names[@]}"; do
+        if [ "${col_names[i]}" == "$col_name" ]; then
+            col_index=$i
+            break
+        fi
+    done
+    if [ $col_index -eq -1 ]; then
+        echo -e "${RED}Error: Column '$col_name' not found in table '$table_name'.${NC}"
+        return 1
+    fi
+    echo -e "${YELLOW}Enter value to match for deletion in column '$col_name':${NC}"
+    read -r match_value
+    local temp_file="$DB_DIR/$db_name/$table_name.tmp"
+    local deleted_count=0
+    while IFS='|' read -r -a row; do
+        if [ "${row[$col_index]}" == "$match_value" ]; then
+            ((deleted_count++))
+            continue  # Skip this record (delete)
+        fi
+        echo "${row[*]}" | tr ' ' '|' >> "$temp_file"
+    done < "$DB_DIR/$db_name/$table_name"
+    mv "$temp_file" "$DB_DIR/$db_name/$table_name"
+    echo -e "${GREEN}Deleted $deleted_count record(s) from table '$table_name' where '$col_name' = '$match_value'.${NC}"
+    
+}
