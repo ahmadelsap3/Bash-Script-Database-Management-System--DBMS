@@ -163,3 +163,77 @@ validate_data() {
 
     return 0
 }
+
+# Function to insert a new record into a table
+insert_record() {
+    local db_name="$1"
+    echo -e "${YELLOW}Enter table name to insert record into:${NC}"
+    read -r table_name
+
+    if [ ! -f "$DB_DIR/$db_name/$table_name" ]; then
+        echo -e "${RED}Error: Table '$table_name' does not exist in database '$db_name'.${NC}"
+        return 1
+    fi
+
+    local metadata_file="$DB_DIR/$db_name/$table_name.meta"
+    if [ ! -f "$metadata_file" ]; then
+        echo -e "${RED}Error: Metadata file for table '$table_name' is missing.${NC}"
+        return 1
+    fi
+
+    #Parse metadata
+    local primary_key=$(grep "Primary Key:" "$metadata_file" | awk -F': ' '{print $2}')
+    local column_data=($(grep -v "Table:" "$metadata_file" | grep -v "Primary Key:" | grep -v "Columns:" | sed 's/ - //g'))
+    local col_names=()
+    local col_types=()
+    for col in "${column_data[@]}"; do
+        col_name+=("$(echo "$col" | awk -F': ' '{print $1}')")
+        col_types+=("$(echo "$col" | awk -F': ' '{print $2}')")
+        col_names+=("$col_name")
+        col_types+=("$col_type")
+    done
+
+    # Get values for each column
+    local values=()
+    local pk_value=""
+    local pk_index=-1
+
+    for ((i = 0; i < ${#col_names[@]}; i++)); do
+        local col_name="${col_names[i]}"
+        local col_type="${col_types[i]}"
+
+        echo -e "${YELLOW}Enter value for column '$col_name' (type: $col_type):${NC}"
+        read -r value
+
+        # Validate data type
+        if ! validate_data "$value" "$col_type"; then
+            echo -e "${RED}Error: Invalid data for column '$col_name'.${NC}"
+            return 1
+        fi
+
+        # Store primary key value and index
+        if [ "$col_name" == "$primary_key" ]; then
+            pk_value="$value"
+            pk_index="$i"
+        fi
+
+        values+=("$value")
+    done
+
+    # Check for primary key uniqueness
+    if [ -n "$primary_key" ] && [ $pk_index -ge 0 ]; then
+        while IFS='|' read -r -a row; do
+            if [ "${row[$pk_index]}" == "$pk_value" ]; then
+                echo -e "${RED}Error: Duplicate entry for primary key '$primary_key': $pk_value.${NC}"
+                return 1
+            fi
+        done < "$DB_DIR/$db_name/$table_name"
+    fi
+
+    # Join values with delimiter and append to table file
+    local record=$(printf "%s|" "${values[@]}")
+    record=${record%|}  # Remove trailing delimiter
+    echo "$record" >> "$DB_DIR/$db_name/$table_name"
+    echo -e "${GREEN}Record inserted successfully into table '$table_name'.${NC}"
+    
+}
