@@ -115,10 +115,10 @@ drop_table() {
     echo -e "${YELLOW}Enter table name to drop:${NC}"
     read -r table_name
 
-    if [ ! -f "$DB_DIR/$db_name/$table_name" ]; then
+    if [ -f "$DB_DIR/$db_name/$table_name" ]; then
         echo -e "${RED}Are you sure you want to drop the table '$table_name'? This action cannot be undone. (y/n):${NC}"
         read -r confirm
-        if [[ "$confirm" != "y" ] || [ "$confirm" != "Y" ]]; then
+        if [[ "$confirm" == "y" || "$confirm" == "Y" ]]; then
             rm -f "$DB_DIR/$db_name/$table_name"
             rm -f "$DB_DIR/$db_name/$table_name.meta"
             echo -e "${GREEN}Table '$table_name' dropped successfully from database '$db_name'.${NC}"
@@ -186,9 +186,10 @@ insert_record() {
     local column_data=($(grep -v "Table:" "$metadata_file" | grep -v "Primary Key:" | grep -v "Columns:" | sed 's/ - //g'))
     local col_names=()
     local col_types=()
+    
     for col in "${column_data[@]}"; do
-        col_name+=("$(echo "$col" | awk -F': ' '{print $1}')")
-        col_types+=("$(echo "$col" | awk -F': ' '{print $2}')")
+        local col_name="$(echo "$col" | awk -F': ' '{print $1}')"
+        local col_type="$(echo "$col" | awk -F': ' '{print $2}')"
         col_names+=("$col_name")
         col_types+=("$col_type")
     done
@@ -255,7 +256,7 @@ select_from_table() {
     fi
 
     # Parse metadata
-    local column_data=($(grep -v "Table:" "$metadata_file" | grep - v "Primary Key:" | grep -v "Columns:" | sed 's/ - //g'))
+    local column_data=($(grep -v "Table:" "$metadata_file" | grep -v "Primary Key:" | grep -v "Columns:" | sed 's/ - //g'))
     local col_names=()
     for col in "${column_data[@]}"; do
         col_name="$(echo "$col" | awk -F': ' '{print $1}')"
@@ -282,7 +283,7 @@ select_from_table() {
 
     # Print each record
     while IFS='|' read -r -a row; do
-        if [-n "$row"]; then
+        if [ -n "$row" ]; then
             local row_output=""
             for value in "${row[@]}"; do
                 row_output+="$value | "
@@ -355,5 +356,5 @@ delete_from_table() {
     done < "$DB_DIR/$db_name/$table_name"
     mv "$temp_file" "$DB_DIR/$db_name/$table_name"
     echo -e "${GREEN}Deleted $deleted_count record(s) from table '$table_name' where '$col_name' = '$match_value'.${NC}"
-    
+
 }
