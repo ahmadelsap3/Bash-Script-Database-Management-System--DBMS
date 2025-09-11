@@ -28,7 +28,7 @@ create_table() {
     fi
 
     # Create metadata file to store column info
-    local meta_file="$DB_DIR/$db_name/$table_name.meta"
+    local metadata_file="$DB_DIR/$db_name/$table_name.meta"
     local primary_key=""
     local col_names=()
     local col_types=()
@@ -84,5 +84,49 @@ create_table() {
             return 1
         fi
     fi
+
+    # Create metadata file
+    echo " Table: $table_name" > "$metadata_file"
+    echo " Primary Key: $primary_key" >> "$metadata_file"
+    echo " Columns:" >> "$metadata_file"
+
+    for ((i = 0; i < col_count; i++)); do
+        echo " - ${col_names[i]}: ${col_types[i]}" >> "$metadata_file"
+    done
+
+    # Create empty table file
+    touch "$DB_DIR/$db_name/$table_name"
+    echo -e "${GREEN}Table '$table_name' created successfully in database '$db_name'.${NC}"
     
+    # Show table structure
+    echo -e "${BLUE}Table Structure:${NC}"
+    echo "-----------------------------------"
+    echo -e "${BLUE}Primary Key: $primary_key${NC}"
+    echo -e "${BLUE}Columns:${NC}"
+    for ((i = 0; i < col_count; i++)); do
+        echo -e "${BLUE}- ${col_names[i]} (${col_types[i]})${NC}"
+    done
+    echo "-----------------------------------"
+}
+
+#Function to drop a table from the database
+drop_table() {
+    local db_name="$1"
+    echo -e "${YELLOW}Enter table name to drop:${NC}"
+    read -r table_name
+
+    if [ ! -f "$DB_DIR/$db_name/$table_name" ]; then
+        echo -e "${RED}Are you sure you want to drop the table '$table_name'? This action cannot be undone. (y/n):${NC}"
+        read -r confirm
+        if [[ "$confirm" != "y" ] || [ "$confirm" != "Y" ]]; then
+            rm -f "$DB_DIR/$db_name/$table_name"
+            rm -f "$DB_DIR/$db_name/$table_name.meta"
+            echo -e "${GREEN}Table '$table_name' dropped successfully from database '$db_name'.${NC}"
+        else
+            echo -e "${YELLOW}Drop table operation cancelled.${NC}"
+        fi
+    else
+        echo -e "${RED}Error: Table '$table_name' does not exist in database '$db_name'.${NC}"
+        return 1
+    fi
 }
