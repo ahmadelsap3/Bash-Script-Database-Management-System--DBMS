@@ -237,3 +237,59 @@ insert_record() {
     echo -e "${GREEN}Record inserted successfully into table '$table_name'.${NC}"
     
 }
+
+# Function to select data from a table
+select_from_table() {
+    local db_name="$1"
+    echo -e "${YELLOW}Enter table name to select from:${NC}"
+    read -r table_name
+    if [ ! -f "$DB_DIR/$db_name/$table_name" ]; then
+        echo -e "${RED}Error: Table '$table_name' does not exist in database '$db_name'.${NC}"
+        return 1
+    fi
+
+    local metadata_file="$DB_DIR/$db_name/$table_name.meta"
+    if [ ! -f "$metadata_file" ]; then
+        echo -e "${RED}Error: Metadata file for table '$table_name' is missing.${NC}"
+        return 1
+    fi
+
+    # Parse metadata
+    local column_data=($(grep -v "Table:" "$metadata_file" | grep - v "Primary Key:" | grep -v "Columns:" | sed 's/ - //g'))
+    local col_names=()
+    for col in "${column_data[@]}"; do
+        col_name="$(echo "$col" | awk -F': ' '{print $1}')"
+        col_names+=("$col_name")
+    done
+
+    # Check if table is empty
+    if [ ! -s "$DB_DIR/$db_name/$table_name" ]; then
+        echo -e "${YELLOW}Table '$table_name' is empty.${NC}"
+        return 0
+    fi
+
+    # Print header
+    local header=""
+    local separator=""
+
+    for col in "${col_names[@]}"; do
+        header+="$col | "
+        separator+="--------"
+    done
+    header=${header% | }  # Remove trailing delimiter
+    echo -e "${BLUE}$header${NC}"
+    echo -e "${BLUE}$separator${NC}"
+
+    # Print each record
+    while IFS='|' read -r -a row; do
+        if [-n "$row"]; then
+            local row_output=""
+            for value in "${row[@]}"; do
+                row_output+="$value | "
+            done
+            row_output=${row_output% | }  # Remove trailing delimiter
+            echo -e "${BLUE}$row_output${NC}"
+        fi
+    done < "$DB_DIR/$db_name/$table_name"
+}
+
