@@ -130,3 +130,36 @@ drop_table() {
         return 1
     fi
 }
+
+# Function to validate data agains data type
+validate_data() {
+    local data="$1"
+    local data_type="$2"
+
+    case $data_type in
+        "int")
+            if ! [[ $data =~ ^-?[0-9]+$ ]]; then
+                echo -e "${RED}Error: Invalid data for column '$col_name'. Expected integer.${NC}"
+                return 1
+            fi
+            ;;
+        "float")
+            if ! [[ $data =~ ^-?[0-9]+(\.[0-9]+)?$ ]]; then
+                echo -e "${RED}Error: Invalid data for column '$col_name'. Expected float.${NC}"
+                return 1
+            fi
+            ;;
+        "string")
+            if [[ -z $data ]]; then
+                echo -e "${RED}Error: Invalid data for column '$col_name'. Expected non-empty string.${NC}"
+                return 1
+            fi
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown data type '$data_type'.${NC}"
+            return 1
+            ;;
+    esac
+
+    return 0
+}
