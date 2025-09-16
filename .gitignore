@@ -1,1 +1,17 @@
+# Bash DBMS - Ignore database files
 /databases/
+/databases/ITI/
+
+# Common environment files
+.env
+.env.local
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*~

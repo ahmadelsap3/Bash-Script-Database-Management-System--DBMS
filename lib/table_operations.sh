@@ -1,5 +1,27 @@
+# Function to list all tables in a database
+list_tables() {
+    local db_name="$1"
+    local db_path="$DB_DIR/$db_name"
+    echo -e "${BLUE}Tables in database '$db_name':${NC}"
+    if [ -d "$db_path" ]; then
+        local tables=( $(ls "$db_path" 2>/dev/null | grep -v ".meta$") )
+        if [ ${#tables[@]} -eq 0 ]; then
+            echo -e "${YELLOW}No tables found.${NC}"
+        else
+            local i=1
+            for t in "${tables[@]}"; do
+                echo "$i. $t"
+                i=$((i+1))
+            done
+        fi
+    else
+        echo -e "${RED}Database directory not found!${NC}"
+    fi
+}
 #!/bin/bash
 # Database Table Operations module
+
+MAX_COLUMNS=50
 
 # Function to create a new table
 create_table() {
@@ -22,7 +44,7 @@ create_table() {
     echo -e "${YELLOW}Enter number of columns:${NC}"
     read -r col_count
 
-    if ! [[ "$col_count" =~ ^[1-9][0-9]*$ ]] || [ "$col_count" -lt 1 ]; then
+    if ! [[ "$col_count" =~ ^[1-9][0-9]*$ ]] || [ "$col_count" -lt 1 ] || [ "$col_count" -gt "$MAX_COLUMNS" ]; then
         echo -e "${RED}Error: Number of columns must be a positive integer and cannot exceed $MAX_COLUMNS.${NC}"
         return 1
     fi
@@ -86,9 +108,9 @@ create_table() {
     fi
 
     # Create metadata file
-    echo " Table: $table_name" > "$metadata_file"
-    echo " Primary Key: $primary_key" >> "$metadata_file"
-    echo " Columns:" >> "$metadata_file"
+    echo "Table: $table_name" > "$metadata_file"
+    echo "Primary Key: $primary_key" >> "$metadata_file"
+    echo "Columns:" >> "$metadata_file"
 
     for ((i = 0; i < col_count; i++)); do
         echo " - ${col_names[i]}: ${col_types[i]}" >> "$metadata_file"
@@ -181,18 +203,20 @@ insert_record() {
         return 1
     fi
 
-    #Parse metadata
-    local primary_key=$(grep "Primary Key:" "$metadata_file" | awk -F': ' '{print $2}')
-    local column_data=($(grep -v "Table:" "$metadata_file" | grep -v "Primary Key:" | grep -v "Columns:" | sed 's/ - //g'))
+
+    # Parse metadata: only lines starting with ' - ' are columns
+    local primary_key=$(grep "^Primary Key:" "$metadata_file" | awk -F': ' '{print $2}')
     local col_names=()
     local col_types=()
-    
-    for col in "${column_data[@]}"; do
-        local col_name="$(echo "$col" | awk -F': ' '{print $1}')"
-        local col_type="$(echo "$col" | awk -F': ' '{print $2}')"
-        col_names+=("$col_name")
-        col_types+=("$col_type")
-    done
+    while IFS= read -r line; do
+        if [[ "$line" == " - "* ]]; then
+            local col_line="${line# - }"
+            local col_name="$(echo "$col_line" | awk -F': ' '{print $1}')"
+            local col_type="$(echo "$col_line" | awk -F': ' '{print $2}')"
+            col_names+=("$col_name")
+            col_types+=("$col_type")
+        fi
+    done < "$metadata_file"
 
     # Get values for each column
     local values=()
@@ -255,13 +279,17 @@ select_from_table() {
         return 1
     fi
 
-    # Parse metadata
-    local column_data=($(grep -v "Table:" "$metadata_file" | grep -v "Primary Key:" | grep -v "Columns:" | sed 's/ - //g'))
+    # Parse metadata: only lines starting with ' - ' are columns, trim whitespace
     local col_names=()
-    for col in "${column_data[@]}"; do
-        col_name="$(echo "$col" | awk -F': ' '{print $1}')"
-        col_names+=("$col_name")
-    done
+    while IFS= read -r line; do
+        # Match any line with dash after optional whitespace
+        if [[ "$line" =~ ^[[:space:]]*-[[:space:]] ]]; then
+            local col_line="${line#*- }"
+            local col_name="$(echo "$col_line" | awk -F':' '{print $1}' | xargs)"
+            col_names+=("$col_name")
+        fi
+    done < "$metadata_file"
+    echo -e "[DEBUG] Parsed columns: ${col_names[*]}" 1>&2
 
     # Check if table is empty
     if [ ! -s "$DB_DIR/$db_name/$table_name" ]; then
@@ -311,13 +339,35 @@ delete_from_table() {
         return 1
     fi  
 
-    # Parse metadata
-    local column_data=($(grep -v "Table:" "$metadata_file" | grep -v "Primary Key:" | grep -v "Columns:" | sed 's/ - //g'))
+    # Print raw metadata file for debugging
+    echo -e "[DEBUG RAW METADATA]:"
+    cat "$metadata_file" 1>&2
+    echo -e "[END DEBUG]"
+
+    # Extract column names using direct line extraction
+    echo -e "[DEBUG] Extracting columns from $metadata_file" 1>&2
     local col_names=()
-    for col in "${column_data[@]}"; do
-        col_name="$(echo "$col" | awk -F': ' '{print $1}')"
-        col_names+=("$col_name")
-    done
+    while IFS= read -r line; do
+        # If line contains a dash and colon, it's probably a column definition
+        if [[ "$line" == *"-"* && "$line" == *":"* ]]; then
+            # Extract column name (part before the colon, after any dash)
+            local col_part="${line#*-}"  # Remove everything up to dash
+            local col_part="$(echo "$col_part" | xargs)"  # Trim whitespace
+            local col_name="${col_part%%:*}"  # Keep only part before colon
+            col_name="$(echo "$col_name" | xargs)"  # Trim whitespace
+            echo -e "[DEBUG] Found column: '$col_name'" 1>&2
+            col_names+=("$col_name")
+        fi
+    done < "$metadata_file"
+    
+    # If no columns found, try alternate method
+    if [ ${#col_names[@]} -eq 0 ]; then
+        echo -e "[DEBUG] No columns found, trying alternate method" 1>&2
+        # Try a simple awk extraction looking for column pattern
+        col_names=($(awk -F':' '/^[[:space:]]*-/ {gsub(/^[[:space:]]*-[[:space:]]*/, "", $1); print $1}' "$metadata_file"))
+    fi
+    
+    echo -e "[DEBUG] All parsed columns: ${col_names[*]}" 1>&2
     
     # check if table has data
     if [ ! -s "$DB_DIR/$db_name/$table_name" ]; then

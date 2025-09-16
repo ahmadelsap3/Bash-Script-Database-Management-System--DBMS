@@ -7,11 +7,13 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-DB_DIR="./databases"  # Directory to store all databases
+# Resolve script directory to make paths robust regardless of current working directory
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+DB_DIR="${SCRIPT_DIR}/databases"  # Directory to store all databases
 
-# Import table operations
-source ./lib/table_operations.sh
-source ./lib/update_records.sh
+# Import table operations (ensure files are sourced using absolute path)
+source "${SCRIPT_DIR}/lib/table_operations.sh"
+source "${SCRIPT_DIR}/lib/update_records.sh"
 
 # Function to create the databases directory if it doesn't exist
 initialize() {
@@ -89,7 +91,7 @@ database_menu(){
         echo "1. Create Table"
         echo "2. List Tables"
         echo "3. Drop Table"
-        echo "4. Insert into Table"
+    echo "4. Insert into Table"
         echo "5. Select From Table"
         echo "6. Delete From Table"
         echo "7. Update Records (Bonus Feature)"
@@ -101,7 +103,7 @@ database_menu(){
             1) create_table "$db_name" ;;
             2) list_tables "$db_name" ;;
             3) drop_table "$db_name" ;;
-            4) insert_into_table "$db_name" ;;
+            4) insert_record "$db_name" ;;
             5) select_from_table "$db_name" ;;
             6) delete_from_table "$db_name" ;;
             7) update_table "$db_name" ;;
@@ -128,7 +130,7 @@ main_menu() {
             2) list_databases ;;
             3) connect_to_database ;;
             4) drop_database ;;
-            5)echo -e "${GREEN}Thank you for using Bash DBMS. Goodbye!${NC}"
+            5) echo -e "${GREEN}Thank you for using Bash DBMS.${NC}"
               exit 0 ;;
             *) echo -e "${RED}Invalid option${NC}" ;;
         esac
